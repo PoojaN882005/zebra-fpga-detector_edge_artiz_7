@@ -89,14 +89,6 @@ The FPGA was tested against multi-condition real-world evaluation benchmarks inc
   <em>Figure 2: Real-time hardware detections. (Left) Low-light night-time crosswalk identified with exact bounding box coordinates <code>[x1=0, y1=159, x2=215, y2=220]</code>. (Right) Urban night crosswalk correctly detected with 100% confidence.</em>
 </p>
 
-<p align="center">
-  <img src="docs/assets/detect_crosswalk_deer.png" width="48%" alt="Crosswalk with Animal Detection" />
-</p>
-
-<p align="center">
-  <em>Figure 3: Robust detection under real-world occlusions (deer crossing road, verified crosswalk detection at 77% confidence).</em>
-</p>
-
 ---
 
 ### Negative Controls (True Negatives — Zero False Positives Confirmed)
@@ -109,7 +101,7 @@ To strictly prevent false alarms in autonomous navigation, the accelerator was v
 </p>
 
 <p align="center">
-  <em>Figure 4: Negative road scene rejections. (Left) Night highway with intense headlight/streetlamp glare correctly classified as <b>FPGA: No Zebra Crossing (Clear Road)</b>. (Right) Airport runway pavement correctly identified as clear road.</em>
+  <em>Figure 3: Negative road scene rejections. (Left) Night highway with intense headlight/streetlamp glare correctly classified as <b>FPGA: No Zebra Crossing (Clear Road)</b>. (Right) Airport runway pavement correctly identified as clear road.</em>
 </p>
 
 <p align="center">
@@ -118,7 +110,7 @@ To strictly prevent false alarms in autonomous navigation, the accelerator was v
 </p>
 
 <p align="center">
-  <em>Figure 5: Non-road object control rejection. (Left) Lord Ganesha idol rejected with zero false positives. (Right) Apple object rejected with zero false positives.</em>
+  <em>Figure 4: Non-road object control rejection. (Left) Lord Ganesha idol rejected with zero false positives. (Right) Apple object rejected with zero false positives.</em>
 </p>
 
 ---
@@ -233,7 +225,6 @@ zebra-fpga-detector/
 │   ├── fpga_board_no00_hardware.png    # Real physical board photo displaying 'no00' (No Crossing)
 │   ├── detect_crosswalk_night.png      # Night-time detection with bounding box
 │   ├── detect_crosswalk_green_night.png# Green-lit crosswalk detection result
-│   ├── detect_crosswalk_deer.png       # Occluded crosswalk detection result
 │   ├── negative_night_glare.png        # Night glare road rejection (Clear Road)
 │   ├── negative_airport_runway.png     # Airport runway rejection (Clear Road)
 │   ├── negative_ganesha_idol.png       # Ganesha idol rejection (Clear Road)
