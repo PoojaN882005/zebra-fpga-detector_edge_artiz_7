@@ -1,140 +1,172 @@
 # Real-Time Edge FPGA Zebra Crossing Detection System
 
-[![Platform](https://img.shields.io/badge/Platform-Xilinx%20Artix--7%20XC7A35T-red.svg)](https://www.xilinx.com)
+[![Platform](https://img.shields.io/badge/Platform-Xilinx%20Edge%20Artix--7%20(XC7A35T)-red.svg)](https://www.xilinx.com)
 [![EDA Tool](https://img.shields.io/badge/Vivado-2024.1%20%7C%202025.2-blue.svg)](https://www.xilinx.com/products/design-tools/vivado.html)
-[![HDL](https://img.shields.io/badge/Hardware-Verilog%20HDL-green.svg)]()
-[![Inference Latency](https://img.shields.io/badge/Latency-0.64%20ms%20%40%2050MHz-brightgreen.svg)]()
-[![Throughput](https://img.shields.io/badge/Throughput->1%2C500%20FPS-orange.svg)]()
-[![Power](https://img.shields.io/badge/Power-Sub--Watt%20(0.29W)-purple.svg)]()
+[![HDL](https://img.shields.io/badge/Language-Verilog%20HDL-green.svg)]()
+[![Inference Latency](https://img.shields.io/badge/Latency-~0.64%20ms%20%40%2050MHz-brightgreen.svg)]()
+[![Clock](https://img.shields.io/badge/Clock-50.00%20MHz-orange.svg)]()
+[![Timing](https://img.shields.io/badge/Timing%20Closure-WNS%20%2B4.108ns-blue.svg)]()
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)]()
 
-A complete, bare-metal **Hardware-Software Co-Designed Deep Learning Vision Accelerator** for real-time pedestrian zebra crossing detection implemented on the **AMD Xilinx Edge Artix-7 FPGA (XC7A35T-1FTG256C)**. 
+A bare-metal **Hardware-Software Co-Designed Deep Learning Accelerator** for real-time pedestrian zebra crossing detection implemented in pure synthesizable **Verilog HDL** on the **AMD Xilinx Edge Artix-7 FPGA (XC7A35T-1FTG256C)**.
 
-The architecture bridges high-level deep neural network training (YOLOv8s) and cycle-accurate, low-power digital microarchitecture. By employing **Teacher-Student Knowledge Distillation** and **16-bit Q2.14 Fixed-Point Quantization**, the system achieves sub-millisecond execution (**0.64 ms / >1,500 FPS**) running entirely within on-chip Block RAM (BRAM) with **zero external DRAM dependency**, drawing less than **0.29 W** of on-chip power.
+The system processes real-time image frames over a full-duplex USB-UART link, buffers frames in dual-port on-chip **Block RAM (BRAM)**, executes quantized **16-bit Q2.14 fixed-point neural inference** with pipelined Multiply-Accumulate (MAC) units, and provides real-time physical feedback via on-board **status LEDs** and a **4-digit 7-segment display**.
 
 ---
 
-## Hardware Demonstration & Visual Evidence
+## 1. Physical Hardware Demonstration (Silicon In Operation)
 
 <p align="center">
-  <img src="docs/assets/fpga_hardware_board.png" width="48%" alt="Physical FPGA Hardware Board Setup" />
-  <img src="docs/assets/detection_result_demo.png" width="48%" alt="Live Zebra Crossing Detection" />
+  <img src="docs/assets/fpga_board_no00_hardware.png" width="55%" alt="Physical Edge Artix-7 FPGA Board displaying no00" />
 </p>
 
 <p align="center">
-  <em>Figure 1: (Left) Physical Edge Artix-7 FPGA development board in real-time operation. (Right) Hardware-verified crosswalk bounding box overlay with 100% confidence.</em>
+  <em>Figure 1: Physical Edge Artix-7 FPGA Development Board running live on the bench. The 4-digit 7-segment display reads <b>'no00'</b>, and status LEDs are active, confirming real-time negative road classification (No Zebra Crossing / Clear Road).</em>
 </p>
 
 ---
 
-## Key Technical Innovations
+## 2. Hardware Peripheral Pinout & Control Specifications
 
-1. **Sub-Millisecond On-Chip Latency (0.64 ms / >1,500 FPS):**
-   * Executes complete neural classification and bounding-box localization in **32,000 clock cycles at 50 MHz**, exceeding standard camera frame-rate requirements (30 FPS) by more than 50×.
-2. **Pure On-Chip Zero-DRAM Memory Architecture:**
-   * Eliminates the high-latency, power-hungry external DDR3 memory bottleneck by utilizing **35 Block RAM tiles (70% device capacity)** for the dual-port $320 \times 240$ RGB565 frame buffer.
-3. **In-Fabric Anti-Aliasing Spatial Downsampling Kernel:**
-   * Integrates an on-the-fly $2 \times 2$ spatial averaging filter `(p00 + p01 + p10 + p11) >> 2` directly inside the BRAM address generation logic, preserving high-frequency asphalt stripe patterns without external buffer memory.
-4. **Latency-Compensated Pipelined MAC Engine:**
-   * Custom address-prefetch pipeline with matched valid-flag registers that completely conceals the 1-cycle synchronous BRAM read latency, sustaining a peak throughput of **1 operation per clock cycle** without pipeline bubbles.
-5. **Full Timing Closure at 50.00 MHz:**
-   * Achieved positive setup slack (**WNS = +4.108 ns**) and hold slack (**WHS = +0.067 ns**) on the Artix-7 FPGA fabric with zero timing violations.
-6. **Non-Volatile Standalone Boot via Quad-SPI Flash PROM:**
-   * Synthesized and programmed into onboard SPI Flash memory (`zebra_top.mcs`, SPIx4 configuration at `CONFIGRATE 33`) for immediate, untethered power-on boot without PC tethering.
-7. **Autonomous Peripheral Status Display:**
-   * Real-time $1\text{ kHz}$ time-multiplexed 4-digit 7-segment display controller and GPIO LED indicators (`d100` = Zebra Crossing Detected, `no00` = Clear Road Confirmed, `0000` = Ready/Idle).
+All I/O pins are physically mapped to the **Edge Artix-7 FPGA board (XC7A35T-1FTG256C)** via `edge_artix7_zebra.xdc`:
+
+### A. Push Buttons
+| Signal Name | FPGA Pin | I/O Standard | Description / Hardware Function |
+| :--- | :---: | :---: | :--- |
+| **`rst`** | **`M14`** | LVCMOS33 | **Center Push Button** (Active-High with internal pulldown). Performs hardware system reset: clears the UART receiver, resets the FSM back to `ST_IDLE`, and resets the 7-segment display to `0000`. |
+
+### B. On-Board Diagnostic LEDs
+| LED Signal | FPGA Pin | I/O Standard | Active State | Function / Hardware Meaning |
+| :--- | :---: | :---: | :---: | :--- |
+| **`led_receiving`** | **`J3`** | LVCMOS33 | HIGH | **Frame Ingestion:** Illuminates while receiving the 153,600-byte raw RGB565 pixel stream over UART into BRAM. |
+| **`led_processing`** | **`H3`** | LVCMOS33 | HIGH | **Inference Active:** Illuminates while the fixed-point neural network core is actively computing. |
+| **`led_detected`** | **`J1`** | LVCMOS33 | HIGH | **Zebra Detected (Green LED):** Lights up when a zebra crossing is confirmed with high confidence. |
+| **`led_error`** | **`K1`** | LVCMOS33 | HIGH | **No Crossing (Red LED):** Lights up when the image is classified as clear road / negative. |
+
+### C. 4-Digit Time-Multiplexed 7-Segment Display
+* **Digit Enable Pins (`digit_en[3:0]`):** `G4` (Digit 1 - leftmost), `G5` (Digit 2), `E1` (Digit 3), `F2` (Digit 4 - rightmost).
+* **Segment Cathode Pins (`Seven_Seg[6:0]`):** `G2` (a), `G1` (b), `H5` (c), `H4` (d), `J5` (e), `J4` (f), `H2` (g).
+* **Clock Refresh Rate:** Autonomous $1\text{ kHz}$ time-multiplexed refresh scanner.
+
+| Display Code | Visual State | Meaning |
+| :---: | :---: | :--- |
+| `0000` | **`0 0 0 0`** | **System Startup / Idle:** Displayed upon board power-on, after pressing reset (`M14`), or while waiting for a frame. |
+| `d100` | **`d 1 0 0`** | **Zebra Crossing Detected:** Displayed when a crosswalk is detected (`d` = detected, `100` = 100% confidence). |
+| `no00` | **`n o 0 0`** | **Clear Road Confirmed:** Displayed when image contains no crosswalk (`no` = negative road, `00` = baseline). *(Shown in Figure 1)* |
+
+### D. System Clock & Serial Interface
+| Signal | FPGA Pin | Configuration | Function |
+| :--- | :---: | :---: | :--- |
+| **`clk_50mhz`** | **`N11`** | LVCMOS33 ($20.00\text{ ns}$ period) | On-board 50.00 MHz system oscillator clock. |
+| **`uart_rx`** | **`D4`** | LVCMOS33 ($115,200\text{ baud}$) | Serial RX from PC (receives synchronization header and raw pixels). |
+| **`uart_tx`** | **`C4`** | LVCMOS33 ($115,200\text{ baud}$) | Serial TX to PC (transmits 9-byte detection packet with coordinates). |
 
 ---
 
-## System Architecture & Dataflow
+## 3. Real-Time Detection Results on Physical Hardware
+
+The FPGA was tested against multi-condition real-world evaluation benchmarks including night roads, street glare, adverse lighting, and non-crosswalk negative controls.
+
+### Positive Detections (True Positives — Zebra Crosswalk Identified)
+
+<p align="center">
+  <img src="docs/assets/detect_crosswalk_night.png" width="48%" alt="Night Crosswalk Detection with Bounding Box" />
+  <img src="docs/assets/detect_crosswalk_green_night.png" width="48%" alt="Green-lit Urban Crosswalk Detection" />
+</p>
+
+<p align="center">
+  <em>Figure 2: Real-time hardware detections. (Left) Low-light night-time crosswalk identified with exact bounding box coordinates <code>[x1=0, y1=159, x2=215, y2=220]</code>. (Right) Urban night crosswalk correctly detected with 100% confidence.</em>
+</p>
+
+<p align="center">
+  <img src="docs/assets/detect_crosswalk_deer.png" width="48%" alt="Crosswalk with Animal Detection" />
+</p>
+
+<p align="center">
+  <em>Figure 3: Robust detection under real-world occlusions (deer crossing road, verified crosswalk detection at 77% confidence).</em>
+</p>
+
+---
+
+### Negative Controls (True Negatives — Zero False Positives Confirmed)
+
+To strictly prevent false alarms in autonomous navigation, the accelerator was verified on non-crosswalk road surfaces and everyday objects:
+
+<p align="center">
+  <img src="docs/assets/negative_night_glare.png" width="48%" alt="Night Highway with Glare" />
+  <img src="docs/assets/negative_airport_runway.png" width="48%" alt="Airport Runway Negative" />
+</p>
+
+<p align="center">
+  <em>Figure 4: Negative road scene rejections. (Left) Night highway with intense headlight/streetlamp glare correctly classified as <b>FPGA: No Zebra Crossing (Clear Road)</b>. (Right) Airport runway pavement correctly identified as clear road.</em>
+</p>
+
+<p align="center">
+  <img src="docs/assets/negative_ganesha_idol.png" width="48%" alt="Ganesha Idol Negative" />
+  <img src="docs/assets/negative_apple.png" width="48%" alt="Apple Negative" />
+</p>
+
+<p align="center">
+  <em>Figure 5: Non-road object control rejection. (Left) Lord Ganesha idol rejected with zero false positives. (Right) Apple object rejected with zero false positives.</em>
+</p>
+
+---
+
+## 4. Hardware System Architecture & Dataflow
 
 ```
  ┌────────────────────────────────────────────────────────────────────────────────────────┐
- │                              COMPLETE ON-CHIP FPGA ARCHITECTURE                        │
+ │                      REAL-TIME FPGA HARDWARE PIPELINE (Artix-7 @ 50 MHz)               │
  └────────────────────────────────────────────────────────────────────────────────────────┘
 
-    [ Camera / PC Stream ]
+    [ PC / Camera Interface ]
                │
-               │ (115,200 Baud UART / 0xAA 0xBB Header)
+               │ UART Stream (115,200 Baud @ Pins D4 / C4)
+               │ Packet: [0xAA, 0xBB, W_H, W_L, H_H, H_L] + 153,600 Bytes RGB565
                ▼
  ┌───────────────────────────┐
- │   Full-Duplex UART RX     │ ──► Auto-Recovering Watchdog Timer (FSM Anti-Lockup)
- └─────────────┬─────────────┘
-               │ 153,600 Bytes Raw RGB565 Stream
-               ▼
- ┌───────────────────────────┐
- │ Dual-Port Frame Buffer    │ ──► Synchronous True Dual-Port BRAM (35 Tiles, 70% BRAM)
- │ (320 × 240 × 16-bit)      │     Port A: Write Domain | Port B: Read Domain
+ │       UART RX Core        │ ──► Auto-Recovering Watchdog Timer (Anti-desynchronization FSM)
  └─────────────┬─────────────┘
                │
                ▼
  ┌───────────────────────────┐
- │ Anti-Aliasing 2×2 Filter  │ ──► On-the-fly Spatial Kernel: (p00 + p01 + p10 + p11) >> 2
+ │   Dual-Port BRAM Buffer   │ ──► 35 Block RAM Tiles (70% BRAM Utilization)
+ │  (320 × 240 × 16-bit)     │     True Synchronous Dual-Port Frame Buffer
+ └─────────────┬─────────────┘
+               │
+               ▼
+ ┌───────────────────────────┐
+ │ 4-Pixel Anti-Alias Filter │ ──► On-the-fly 2×2 Spatial Kernel: (p00 + p01 + p10 + p11) >> 2
  └─────────────┬─────────────┘
                │ 432 Spatially Normalized Input Features
                ▼
  ┌───────────────────────────┐
- │  Fixed-Point Neural Core  │ ──► 16-bit Q2.14 Pipelined Multiply-Accumulate (MAC)
- │ (432 In ➔ 32 Hidden ➔ 5)  │     Pre-fetched BRAM Read Latency Compensation Pipeline
+ │  Fixed-Point Neural Core  │ ──► 16-bit Q2.14 Pipelined MAC Engine (DSP48E1 Slices)
+ │ (432 In ➔ 32 Hidden ➔ 5)  │     Address-Prefetch Pipeline Masks 1-Cycle BRAM Read Latency
  └─────────────┬─────────────┘
                │ Layer 1: ReLU Activation | Layer 2: Score + Coordinates
                ▼
  ┌───────────────────────────┐
- │ Post-Processing & Output  │
+ │    Output Decision FSM    │
  └──────┬──────────────┬─────┘
         │              │
         ▼              ▼
- ┌─────────────┐ ┌────────────────────────────────────────────────────────────────┐
- │ 7-Seg & LED │ │ UART Response Packet:                                          │
- │ Indicators  │ │ [0x01, X1_H, X1_L, Y1_H, Y1_L, X2_H, X2_L, Y2_H, Y2_L]         │
- │ (d100/no00) │ │ (Single-byte 0x00 if clear road)                               │
- └─────────────┘ └────────────────────────────────────────────────────────────────┘
+ ┌───────────────────────────┐ ┌────────────────────────────────────────────────────────┐
+ │ On-Board Peripheral Drive │ │ UART TX Response Packet                                │
+ │ - 7-Seg: 'd100' or 'no00' │ │ - Detected: [0x01, X1_H, X1_L, Y1_H, Y1_L, X2... Y2_L] │
+ │ - Status LEDs: J1 / K1    │ │ - Not Detected: [0x00]                                 │
+ └───────────────────────────┘ └────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Machine Learning & Quantization Pipeline
+## 5. Silicon Resource Utilization & Timing Closure
 
-To balance algorithmic detection accuracy with silicon resource constraints, the design uses a **Teacher-Student Knowledge Distillation** framework:
+The project was fully synthesized and implemented in **AMD Xilinx Vivado** targeting the **XC7A35T-1FTG256C**:
 
-```
- [ Software Golden Teacher ]
-   YOLOv8s Backbone (11.2 Million Parameters, Float32)
-   Trained across 5,000+ real-world images (80 epochs, AdamW)
-   Dataset: CDSet (3,434 adverse weather images) + Roboflow + 300+ Negatives
-   Achieved: 96.92% mAP@50 | 94.00% Precision | 93.48% Recall | 93.74% F1-Score
-                 │
-                 │ Knowledge Distillation & Weight Clustering
-                 ▼
- [ Compact Hardware Architecture ]
-   Compact Neural Network (432 Inputs ➔ 32 Hidden Neurons ➔ 5 Outputs)
-   Parameters: 13,984 Weights + 37 Biases (~28 KB total memory footprint)
-                 │
-                 │ Fixed-Point Quantization (Q2.14 / INT16)
-                 ▼
- [ Synthesizable RTL Memory Files ]
-   `w1.mem`, `b1.mem`, `w2.mem`, `b2.mem`
-   Synthesized directly into Block RAM tiles on the Artix-7 FPGA
-```
+### FPGA Resource Utilization Table
 
----
-
-## Physical Silicon Implementation & Timing Closure
-
-The design was fully synthesized, placed, routed, and bitstream-generated using **AMD Xilinx Vivado (2024.1 / 2025.2)**.
-
-<p align="center">
-  <img src="docs/assets/vivado_project_summary.png" width="48%" alt="Vivado Project Summary" />
-  <img src="docs/assets/vivado_device_implementation.png" width="48%" alt="Vivado Device Floorplan" />
-</p>
-
-<p align="center">
-  <em>Figure 2: (Left) Vivado Design Runs summary confirming zero timing errors. (Right) Routed silicon floorplan on the XC7A35T device.</em>
-</p>
-
-### FPGA Resource Utilization (Artix-7 XC7A35T-1FTG256C)
-
-| Resource Type | Used | Available | Utilization (%) |
+| Resource Type | Used | Total Available | Utilization (%) |
 | :--- | :---: | :---: | :---: |
 | **Slice LUTs** | **2,948** | 20,800 | **14.17%** |
 | **Slice Registers (FF)** | **1,520** | 41,600 | **3.65%** |
@@ -144,41 +176,25 @@ The design was fully synthesized, placed, routed, and bitstream-generated using 
 
 ### Static Timing Analysis (@ 50.00 MHz System Clock)
 
-| Metric | Target Period | Slack Achieved | Status |
+| Timing Metric | Target Period | Slack Value | Status |
 | :--- | :---: | :---: | :---: |
-| **Worst Negative Slack (WNS / Setup)** | 20.000 ns | **+4.108 ns** | **MET (No Violations)** |
-| **Worst Hold Slack (WHS / Hold)** | 0.000 ns | **+0.067 ns** | **MET (No Violations)** |
-| **Worst Pulse Width Slack (WPWS)** | 9.500 ns | **+9.500 ns** | **MET (No Violations)** |
+| **Worst Negative Slack (WNS / Setup)** | 20.000 ns | **+4.108 ns** | **MET (Zero Violations)** |
+| **Worst Hold Slack (WHS / Hold)** | 0.000 ns | **+0.067 ns** | **MET (Zero Violations)** |
+| **Worst Pulse Width Slack (WPWS)** | 9.500 ns | **+9.500 ns** | **MET (Zero Violations)** |
 
 ---
 
-## Hardware Benchmarks & Energy Comparison
+## 6. Machine Learning Distillation & Quantization
 
-Tested against physical silicon across an evaluation suite of **115 real-world road scenes** (62 zebra crosswalk positives under adverse weather/lighting, and 53 negative road control scenes):
-* **Hardware Classification Accuracy:** **100.0% (115 / 115 images correctly identified)**
-* **False Positives:** **0%** on clear asphalt and plain highways.
-
-<p align="center">
-  <img src="docs/assets/hardware_uart_terminal.png" width="48%" alt="Hardware UART Terminal" />
-  <img src="docs/assets/fpga_7segment_demo.png" width="48%" alt="7-Segment Display Output" />
-</p>
-
-<p align="center">
-  <em>Figure 3: (Left) Live UART diagnostic response showing 0.64 ms latency and exact bounding-box coordinates. (Right) On-board 7-segment display showing 'd100' active detection.</em>
-</p>
-
-### Comparison with Edge GPUs and CPUs
-
-| Platform | Architecture / Model | Clock | Power | Latency | Energy / Decision |
-| :--- | :--- | :---: | :---: | :---: | :---: |
-| **This Work (Artix-7 FPGA)** | **Custom Bare-Metal RTL (Q2.14)** | **50 MHz** | **0.29 W** | **0.64 ms** | **11 mJ (Baseline)** |
-| **NVIDIA Jetson Nano** | Embedded GPU (CDNet / YOLOv5) | 921 MHz | 10.0 W | 30.2 ms | 302 mJ (**27× more**) |
-| **Intel Core i5-12500H** | Laptop CPU (Quantized BCNN) | 4.5 GHz | 45.0 W | 8.1 ms | 366 mJ (**33× more**) |
-| **Intel Core i5-12500H** | Laptop CPU (Full Float32 ResNet-18) | 4.5 GHz | 45.0 W | 42.5 ms | 1,912 mJ (**175× more**) |
+To fit within the 225 KB Block RAM capacity of the Artix-7 FPGA without external DRAM:
+* **Teacher Model:** High-capacity YOLOv8s trained across 5,000+ real-world crosswalk scenes for 80 epochs.
+* **Student Model:** Compact neural architecture ($432 \rightarrow 32 \rightarrow 5$) trained via **Knowledge Distillation**.
+* **Fixed-Point Quantization:** Floating-point weights quantized into **16-bit Q2.14** fixed-point representation (`w1.mem`, `b1.mem`, `w2.mem`, `b2.mem`), occupying just **28 KB** of on-chip memory.
+* **On-Chip Inference Latency:** **0.64 ms** ($32,000\text{ clock cycles at 50 MHz}$).
 
 ---
 
-## Repository Structure
+## 7. Repository Structure
 
 ```
 zebra-fpga-detector/
@@ -194,65 +210,52 @@ zebra-fpga-detector/
 │   └── edge_artix7_zebra.xdc           # Physical I/O and timing constraints
 │
 ├── pc_software/                        # Host PC Python Verification & Interface Suite
-│   ├── fpga_interface.py               # Real-time UART bridge (sends frames, reads bounding box)
+│   ├── fpga_interface.py               # Real-time UART bridge (streams images, reads coordinates)
 │   ├── train_fpga_weights.py           # Teacher-student distillation & Q2.14 quantization script
 │   └── test_detector.py                # Standalone golden reference software tester
 │
 ├── colab_training/                     # Google Colab Deep Learning Training Notebook
 │   └── zebra_train_colab.ipynb         # 80-epoch YOLOv8 training on 5,000+ crosswalk images
 │
-├── docs/assets/                        # Architectural Diagrams & Silicon Test Evidence
-│   ├── fpga_hardware_board.png         # Physical Edge Artix-7 board in operation
-│   ├── detection_result_demo.png       # Hardware-verified bounding box output
-│   ├── vivado_project_summary.png      # Synthesis & implementation status report
-│   ├── vivado_device_implementation.png# Silicon floorplan on XC7A35T
-│   ├── vivado_timing_closure.png       # Positive slack timing report (+4.108 ns WNS)
-│   └── hardware_uart_terminal.png      # Hardware-in-the-loop diagnostic logs
+├── docs/assets/                        # Verified Silicon Demonstrations & Visual Test Evidence
+│   ├── fpga_board_no00_hardware.png    # Real physical Artix-7 board displaying 'no00'
+│   ├── detect_crosswalk_night.png      # Night-time detection with bounding box
+│   ├── detect_crosswalk_green_night.png# Green-lit crosswalk detection result
+│   ├── detect_crosswalk_deer.png       # Occluded crosswalk detection result
+│   ├── negative_night_glare.png        # Night glare road rejection (Clear Road)
+│   ├── negative_airport_runway.png     # Airport runway rejection (Clear Road)
+│   ├── negative_ganesha_idol.png       # Ganesha idol rejection (Clear Road)
+│   └── negative_apple.png              # Apple rejection (Clear Road)
 │
 └── README.md                           # Technical Documentation & Specification
 ```
 
 ---
 
-## Quick Start & Reproduction Guide
+## 8. Quick Start Guide
 
-### 1. Hardware Requirements
-* **FPGA Board:** Edge Artix-7 (XC7A35T-1FTG256C).
-* **Connection:** Micro-USB cable connected to the on-board FTDI USB-UART port (`COM14` or auto-detected).
-* **Software Tools:** AMD Xilinx Vivado (2024.1 or later), Python 3.10+ with `pyserial`, `opencv-python`, and `numpy`.
-
-### 2. Synthesize & Program FPGA in Vivado
-1. Open AMD Vivado and create a project targeting `xc7a35tftg256-1`.
-2. Add all Verilog files from `fpga_rtl/` and the constraint file `fpga_rtl/edge_artix7_zebra.xdc`.
-3. Add the memory coefficient files (`w1.mem`, `b1.mem`, `w2.mem`, `b2.mem`).
+### Step 1: Synthesize & Program the FPGA
+1. Open **AMD Xilinx Vivado** and create a project targeting `xc7a35tftg256-1`.
+2. Add all source files from `fpga_rtl/` and the constraint file `fpga_rtl/edge_artix7_zebra.xdc`.
+3. Add memory initialization files (`w1.mem`, `b1.mem`, `w2.mem`, `b2.mem`).
 4. Click **Generate Bitstream**.
-5. Open **Hardware Manager**, connect to your board, and program `zebra_top.bit`.
-6. *(Optional Standalone Boot)*: Right-click FPGA device $\rightarrow$ **Add Configuration Memory Device** $\rightarrow$ Select `s25fl128s-3.3v-spi-x1_x2_x4` $\rightarrow$ Program `zebra_top.mcs`.
+5. Connect your Edge Artix-7 board over Micro-USB and program `zebra_top.bit` using Vivado Hardware Manager.
 
-### 3. Run Real-Time Hardware Detection
-In your terminal, launch the Python interactive interface:
+### Step 2: Run Real-Time Hardware Detection
+In your PC terminal, launch the Python hardware interface:
 
 ```bash
 cd pc_software
 python fpga_interface.py
 ```
 
-The script will automatically detect the FTDI COM port, connect at 115,200 baud, stream the image frame, and display the live bounding box returned from the physical FPGA.
+The script will automatically detect the FTDI serial port, connect at 115,200 baud, stream the image frame, and display the live bounding box returned from the physical FPGA.
 
 ---
 
-## Citation & Authorship
+## Authorship & Acknowledgments
 
-Developed by **Pooja Pramod Nagvekar** as part of the RTL Design and FPGA Acceleration Research Initiative at **Namaste FPGA Technologies** and **Vidyalankar Institute of Technology, Mumbai**.
-
-```bibtex
-@article{nagvekar2026realtime,
-  title={Real-Time Edge-Accelerated Deep Learning Vision System on Sub-Watt FPGA},
-  author={Nagvekar, Pooja Pramod and Khandagale, Kumar},
-  journal={Namaste FPGA Technical Reports},
-  year={2026}
-}
-```
+Developed by **Pooja Pramod Nagvekar** as part of the RTL Design and FPGA Implementation Internship at **Namaste FPGA Technologies** under the mentorship of **Mr. Kumar Khandagale**.
 
 ---
 
