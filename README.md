@@ -14,14 +14,25 @@ The system processes real-time image frames over a full-duplex USB-UART link, bu
 
 ---
 
-## 1. Physical Hardware Demonstration (Silicon In Operation)
+## 1. Physical Hardware Demonstration (Real-Time Output on FPGA)
+
+<table align="center">
+  <tr>
+    <td align="center" width="50%">
+      <img src="docs/assets/fpga_board_d100_hardware.png" width="95%" alt="Zebra Crossing Detected (d100)" /><br/><br/>
+      <b>ZEBRA CROSSING DETECTED</b><br/>
+      <sub><b>7-Segment Output:</b> <code>d100</code> (100% Crosswalk Confidence)<br/><b>Status LED:</b> Green LED (<code>J1</code>) Active</sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="docs/assets/fpga_board_no00_hardware.png" width="95%" alt="No Zebra Crossing (no00)" /><br/><br/>
+      <b>NO ZEBRA CROSSING (CLEAR ROAD)</b><br/>
+      <sub><b>7-Segment Output:</b> <code>no00</code> (Negative Road Rejection)<br/><b>Status LED:</b> Red LED (<code>K1</code>) Active</sub>
+    </td>
+  </tr>
+</table>
 
 <p align="center">
-  <img src="docs/assets/fpga_board_no00_hardware.png" width="55%" alt="Physical Edge Artix-7 FPGA Board displaying no00" />
-</p>
-
-<p align="center">
-  <em>Figure 1: Physical Edge Artix-7 FPGA Development Board running live on the bench. The 4-digit 7-segment display reads <b>'no00'</b>, and status LEDs are active, confirming real-time negative road classification (No Zebra Crossing / Clear Road).</em>
+  <em>Figure 1: Live physical hardware verification on the Edge Artix-7 FPGA development board. (Left) 7-segment display outputs <b>'d100'</b> when a zebra crossing is detected. (Right) 7-segment display outputs <b>'no00'</b> when a non-crosswalk / clear road scene is confirmed.</em>
 </p>
 
 ---
@@ -48,11 +59,11 @@ All I/O pins are physically mapped to the **Edge Artix-7 FPGA board (XC7A35T-1FT
 * **Segment Cathode Pins (`Seven_Seg[6:0]`):** `G2` (a), `G1` (b), `H5` (c), `H4` (d), `J5` (e), `J4` (f), `H2` (g).
 * **Clock Refresh Rate:** Autonomous $1\text{ kHz}$ time-multiplexed refresh scanner.
 
-| Display Code | Visual State | Meaning |
-| :---: | :---: | :--- |
-| `0000` | **`0 0 0 0`** | **System Startup / Idle:** Displayed upon board power-on, after pressing reset (`M14`), or while waiting for a frame. |
-| `d100` | **`d 1 0 0`** | **Zebra Crossing Detected:** Displayed when a crosswalk is detected (`d` = detected, `100` = 100% confidence). |
-| `no00` | **`n o 0 0`** | **Clear Road Confirmed:** Displayed when image contains no crosswalk (`no` = negative road, `00` = baseline). *(Shown in Figure 1)* |
+| Display Code | Visual State | Meaning | Physical Board Output |
+| :---: | :---: | :--- | :--- |
+| `0000` | **`0 0 0 0`** | **System Startup / Idle:** Initialized state upon board power-on, after pressing reset (`M14`), or while waiting for a frame. | Default Reset State |
+| `d100` | **`d 1 0 0`** | **Zebra Crossing Detected:** Output when a crosswalk is detected (`d` = detected, `100` = 100% confidence). | *(Shown in Figure 1 Left)* |
+| `no00` | **`n o 0 0`** | **Clear Road Confirmed:** Output when the frame contains no crosswalk (`no` = negative road, `00` = baseline). | *(Shown in Figure 1 Right)* |
 
 ### D. System Clock & Serial Interface
 | Signal | FPGA Pin | Configuration | Function |
@@ -218,7 +229,8 @@ zebra-fpga-detector/
 │   └── zebra_train_colab.ipynb         # 80-epoch YOLOv8 training on 5,000+ crosswalk images
 │
 ├── docs/assets/                        # Verified Silicon Demonstrations & Visual Test Evidence
-│   ├── fpga_board_no00_hardware.png    # Real physical Artix-7 board displaying 'no00'
+│   ├── fpga_board_d100_hardware.png    # Real physical board photo displaying 'd100' (Detected)
+│   ├── fpga_board_no00_hardware.png    # Real physical board photo displaying 'no00' (No Crossing)
 │   ├── detect_crosswalk_night.png      # Night-time detection with bounding box
 │   ├── detect_crosswalk_green_night.png# Green-lit crosswalk detection result
 │   ├── detect_crosswalk_deer.png       # Occluded crosswalk detection result
