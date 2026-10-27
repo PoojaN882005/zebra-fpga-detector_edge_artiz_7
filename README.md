@@ -1,10 +1,11 @@
 # Real-Time Edge FPGA Zebra Crossing Detection System
 
 [![Platform](https://img.shields.io/badge/Platform-Xilinx%20Edge%20Artix--7%20(XC7A35T)-red.svg)](https://www.xilinx.com)
-[![EDA Tool](https://img.shields.io/badge/Vivado-2024.1%20%7C%202025.2-blue.svg)](https://www.xilinx.com/products/design-tools/vivado.html)
+[![EDA Tool](https://img.shields.io/badge/Vivado-v2025.2-blue.svg)](https://www.xilinx.com/products/design-tools/vivado.html)
 [![HDL](https://img.shields.io/badge/Language-Verilog%20HDL-green.svg)]()
 [![Inference Latency](https://img.shields.io/badge/Latency-~0.64%20ms%20%40%2050MHz-brightgreen.svg)]()
 [![Clock](https://img.shields.io/badge/Clock-50.00%20MHz-orange.svg)]()
+[![Power](https://img.shields.io/badge/Total%20Power-0.101%20W%20(101%20mW)-purple.svg)]()
 [![Timing](https://img.shields.io/badge/Timing%20Closure-WNS%20%2B4.108ns-blue.svg)]()
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)]()
 
@@ -133,7 +134,7 @@ To strictly prevent false alarms in autonomous navigation, the accelerator was v
                │
                ▼
  ┌───────────────────────────┐
- │   Dual-Port BRAM Buffer   │ ──► 35 Block RAM Tiles (70% BRAM Utilization)
+ │   Dual-Port BRAM Buffer   │ ──► 33.5 Block RAM Tiles (67% BRAM Utilization)
  │  (320 × 240 × 16-bit)     │     True Synchronous Dual-Port Frame Buffer
  └─────────────┬─────────────┘
                │
@@ -163,21 +164,45 @@ To strictly prevent false alarms in autonomous navigation, the accelerator was v
 
 ---
 
-## 5. Silicon Resource Utilization & Timing Closure
+## 5. Authentic Silicon Power & Area Utilization (Vivado Routed Reports)
 
-The project was fully synthesized and implemented in **AMD Xilinx Vivado** targeting the **XC7A35T-1FTG256C**:
+The following tables report the exact, verified post-routing measurements from **AMD Xilinx Vivado (v2025.2)** on the physical design targeting the **XC7A35T-1FTG256C**:
 
-### FPGA Resource Utilization Table
+### A. Power Consumption Report (`zebra_top_power_routed.rpt`)
+
+| Power Domain | Power (W) | Power (mW) | Percentage (%) |
+| :--- | :---: | :---: | :---: |
+| **Dynamic Power** | **0.028 W** | **28 mW** | **27.7%** |
+| **Device Static Power** | **0.073 W** | **73 mW** | **72.3%** |
+| **Total On-Chip Power** | **0.101 W** | **101 mW** | **100.0%** |
+
+#### Dynamic Power Breakdown by Hardware Hierarchy
+* **Neural Network Accelerator (`u_qnn_core`):** **0.015 W (15 mW)**
+* **Dual-Port BRAM Frame Buffer (`u_frame_buffer`):** **0.011 W (11 mW)**
+* **Clock Distribution & Logic Signals:** **0.002 W (2 mW)**
+* **Operating Junction Temperature:** **25.5 °C** (Ambient: 25.0 °C, Thermal Margin: 84.5 °C)
+
+---
+
+### B. Silicon Resource Utilization Report (`zebra_top_utilization_placed.rpt`)
 
 | Resource Type | Used | Total Available | Utilization (%) |
 | :--- | :---: | :---: | :---: |
-| **Slice LUTs** | **2,948** | 20,800 | **14.17%** |
-| **Slice Registers (FF)** | **1,520** | 41,600 | **3.65%** |
-| **Block RAM (BRAM36E1 / 18E1)** | **35** | 50 | **70.00%** |
+| **Slice LUTs** | **2,521** | 20,800 | **12.12%** |
+| **Slice Registers (FF)** | **4,558** | 41,600 | **10.96%** |
+| **Slices** | **1,771** | 8,150 | **21.73%** |
+| **Block RAM (BRAM Tile)** | **33.5** | 50 | **67.00%** |
+| &nbsp;&nbsp;&nbsp;&nbsp;↳ *RAMB36E1 (36-kbit)* | 32 | 50 | 64.00% |
+| &nbsp;&nbsp;&nbsp;&nbsp;↳ *RAMB18E1 (18-kbit)* | 3 | 100 | 3.00% |
 | **DSP48E1 Slices** | **3** | 90 | **3.33%** |
-| **Global Clock Buffers (BUFG)** | **3** | 32 | **9.38%** |
+| **Bonded I/O Pins** | **19** | 170 | **11.18%** |
+| **Global Clock Buffers (BUFG)** | **1** | 32 | **3.13%** |
 
-### Static Timing Analysis (@ 50.00 MHz System Clock)
+---
+
+### C. Static Timing Analysis Report (`zebra_top_timing_summary_routed.rpt`)
+
+Operating at the **50.00 MHz System Clock** ($20.000\text{ ns}$ period):
 
 | Timing Metric | Target Period | Slack Value | Status |
 | :--- | :---: | :---: | :---: |
@@ -193,7 +218,7 @@ To fit within the 225 KB Block RAM capacity of the Artix-7 FPGA without external
 * **Teacher Model:** High-capacity YOLOv8s trained across 5,000+ real-world crosswalk scenes for 80 epochs.
 * **Student Model:** Compact neural architecture ($432 \rightarrow 32 \rightarrow 5$) trained via **Knowledge Distillation**.
 * **Fixed-Point Quantization:** Floating-point weights quantized into **16-bit Q2.14** fixed-point representation (`w1.mem`, `b1.mem`, `w2.mem`, `b2.mem`), occupying just **28 KB** of on-chip memory.
-* **On-Chip Inference Latency:** **0.64 ms** ($32,000\text{ clock cycles at 50 MHz}$).
+* **On-Chip Inference Latency:** **~0.64 ms** ($32,000\text{ clock cycles at 50 MHz}$).
 
 ---
 
